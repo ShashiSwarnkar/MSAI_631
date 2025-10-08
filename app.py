@@ -3,7 +3,7 @@
 
 import sys
 import traceback
-from datetime import datetime
+from dotenv import load_dotenv
 
 from aiohttp import web
 from aiohttp.web import Request, Response, json_response
@@ -15,8 +15,10 @@ from botbuilder.core import (
 from botbuilder.core.integration import aiohttp_error_middleware
 from botbuilder.schema import Activity, ActivityTypes
 
-from bots import EchoBot
+from bots.sentiment_analysis_bot import SentimentBot
 from config import DefaultConfig
+
+load_dotenv()
 
 CONFIG = DefaultConfig()
 
@@ -39,7 +41,7 @@ async def on_error(context: TurnContext, error: Exception):
 ADAPTER.on_turn_error = on_error
 
 # Create the Bot
-BOT = EchoBot()
+BOT = SentimentBot()
 
 # Listen for incoming requests on /api/messages
 async def messages(req: Request) -> Response:
