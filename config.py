@@ -14,5 +14,6 @@ class DefaultConfig:
     
     # Added to support interaction with Azure AI Language API
     LANGUAGE_API_ENDPOINT = os.environ.get("LanguageApiEndpoint", "")
+    print(f"Endpoint: {LANGUAGE_API_ENDPOINT}")
     LANGUAGE_API_KEY = os.environ.get("LanguageApiKey", "")
     
