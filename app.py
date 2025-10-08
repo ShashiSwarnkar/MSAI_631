@@ -3,7 +3,10 @@
 
 import sys
 import traceback
+import os
 from dotenv import load_dotenv
+
+load_dotenv()
 
 from aiohttp import web
 from aiohttp.web import Request, Response, json_response
@@ -18,12 +21,9 @@ from botbuilder.schema import Activity, ActivityTypes
 from bots.sentiment_analysis_bot import SentimentBot
 from config import DefaultConfig
 
-load_dotenv()
-
 CONFIG = DefaultConfig()
 
 # Create adapter.
-# See https://aka.ms/about-bot-adapter to learn more about adapters.
 SETTINGS = BotFrameworkAdapterSettings(CONFIG.APP_ID, CONFIG.APP_PASSWORD)
 ADAPTER = BotFrameworkAdapter(SETTINGS)
 
@@ -41,7 +41,7 @@ async def on_error(context: TurnContext, error: Exception):
 ADAPTER.on_turn_error = on_error
 
 # Create the Bot
-BOT = SentimentBot()
+BOT = SentimentBot(CONFIG)
 
 # Listen for incoming requests on /api/messages
 async def messages(req: Request) -> Response:
