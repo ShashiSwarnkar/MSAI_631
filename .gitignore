@@ -3,3 +3,6 @@ Ignore environment files
 
 Ignore Python cache files
 *.pyc
+
+# Ignore all CSV files
+*.csv
