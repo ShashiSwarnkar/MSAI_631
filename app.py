@@ -18,7 +18,7 @@ from botbuilder.core import (
 from botbuilder.core.integration import aiohttp_error_middleware
 from botbuilder.schema import Activity, ActivityTypes
 
-from bots.sentiment_analysis_bot import SentimentBot
+from bots.product_bot import ProductRecommendationBot
 from config import DefaultConfig
 
 CONFIG = DefaultConfig()
@@ -41,7 +41,7 @@ async def on_error(context: TurnContext, error: Exception):
 ADAPTER.on_turn_error = on_error
 
 # Create the Bot
-BOT = SentimentBot(CONFIG)
+BOT = ProductRecommendationBot(CONFIG)
 
 # Listen for incoming requests on /api/messages
 async def messages(req: Request) -> Response:

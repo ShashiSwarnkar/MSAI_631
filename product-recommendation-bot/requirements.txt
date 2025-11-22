@@ -1,0 +1,5 @@
+# Product Recommendation Bot - Requirements
+
+gradio>=4.44
+requests
+python-dotenv

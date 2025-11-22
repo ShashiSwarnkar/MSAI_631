@@ -6,3 +6,6 @@ Ignore Python cache files
 
 # Ignore all CSV files
 *.csv
+
+# Ignore all CSV files
+*.json

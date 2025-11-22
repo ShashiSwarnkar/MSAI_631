@@ -1,4 +1,4 @@
 from .echo_bot import EchoBot
-from .sentiment_analysis_bot import SentimentBot
+from .product_bot import ProductRecommendationBot
 
-__all__ = ["SentimentBot", "EchoBot"]
+__all__ = ["ProductRecommendationBot", "EchoBot"]
