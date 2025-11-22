@@ -3,11 +3,16 @@ import requests
 import json
 import re
 import time
+import os
 from dotenv import load_dotenv
+
+# Load environment variables FIRST, before importing config
+load_dotenv()
+
+
+# Now import config (which will read the environment variables)
 from config import DefaultConfig
 
-# Load environment variables
-load_dotenv()
 
 # Import local modules (optional - only used if USE_LOCAL_MODE=true)
 try:
