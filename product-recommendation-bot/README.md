@@ -27,9 +27,9 @@ pip install -r requirements.txt
 
 Create a `.env` file:
 ```
-GEMINI_API_KEY=your_gemini_api_key_here
-GOOGLE_SEARCH_API_KEY=your_google_search_api_key_here
-GOOGLE_SEARCH_ENGINE_ID=your_search_engine_id_here
+GEMINI_API_KEY=gemini_api
+GOOGLE_SEARCH_API_KEY=google_search_api_key
+GOOGLE_SEARCH_ENGINE_ID=search_engine_id
 ```
 
 ### 3. Run the Chatbot
