@@ -1,5 +1,10 @@
 # Product Recommendation Bot - Requirements
 
+# Core dependencies
 gradio>=4.44
 requests
 python-dotenv
+
+# Local mode dependencies (optional - only needed for USE_LOCAL_MODE=true)
+beautifulsoup4
+lxml

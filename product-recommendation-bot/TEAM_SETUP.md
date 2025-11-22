@@ -166,3 +166,57 @@ Check this guide first
 2. Verify Python version: `python --version`
 3. Verify dependencies: `pip list | grep gradio`
 4. Check terminal output for error messages
+
+---
+
+## Local Mode (Optional)
+
+The bot supports two modes:
+- **Cloud Mode** (default): Uses Gemini API + Google Custom Search
+- **Local Mode**: Uses Ollama (local LLM) + Web Scraping
+
+### Why Use Local Mode?
+- No API keys needed
+- No quota limits
+- Complete privacy
+- Runs offline (after setup)
+
+### Setup Local Mode
+
+**1. Install Ollama**
+- Download: https://ollama.com/download
+- Restart computer after installation
+
+**2. Download Model**
+```bash
+ollama pull llama3.2:3b
+```
+
+**3. Install Dependencies**
+```bash
+pip install beautifulsoup4 lxml
+```
+
+**4. Enable Local Mode**
+
+Edit `.env` and add:
+```
+USE_LOCAL_MODE=true
+```
+
+**5. Restart Bot**
+
+You should see: `🏠 Using LOCAL mode`
+
+### Switching Modes
+
+Edit `.env`:
+- **Cloud**: `USE_LOCAL_MODE=false` (or omit)
+- **Local**: `USE_LOCAL_MODE=true`
+
+Then restart the bot.
+
+### Local Mode Requirements
+- 8GB+ RAM recommended
+- 10GB disk space (for model)
+- Slower than cloud (3-5s vs 1-2s)

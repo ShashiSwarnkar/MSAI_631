@@ -9,9 +9,24 @@ from config import DefaultConfig
 # Load environment variables
 load_dotenv()
 
+# Import local modules (optional - only used if USE_LOCAL_MODE=true)
+try:
+    from local_llm import LocalLLM
+    from web_scraper import ReviewSiteScraper
+    LOCAL_MODULES_AVAILABLE = True
+except ImportError:
+    LOCAL_MODULES_AVAILABLE = False
+    print("Local modules not available. Install dependencies: pip install beautifulsoup4 lxml")
+
 class ProductRecommendationChatbot:
-    def __init__(self):
+    def __init__(self, use_local=None):
         self.config = DefaultConfig()
+        
+        # Determine mode: use parameter if provided, otherwise use config
+        if use_local is None:
+            use_local = self.config.USE_LOCAL_MODE
+        
+        self.use_local = use_local
         self.conversation_history = []
         self.search_cache = {}
         self.last_search_time = 0
@@ -21,6 +36,19 @@ class ProductRecommendationChatbot:
             'last_price_limit': None,
             'last_category': None
         }
+        
+        # Initialize appropriate backend
+        if self.use_local:
+            if not LOCAL_MODULES_AVAILABLE:
+                raise ImportError("Local mode requires: pip install beautifulsoup4 lxml")
+            print("🏠 Using LOCAL mode (Ollama + Web Scraping)")
+            self.llm = LocalLLM(model=self.config.LOCAL_LLM_MODEL)
+            self.scraper = ReviewSiteScraper()
+            # Test Ollama connection
+            if not self.llm.test_connection():
+                print("⚠️  Ollama not running. Start it and restart the app.")
+        else:
+            print("☁️  Using CLOUD mode (Gemini + Google Custom Search)")
     
     def chat(self, message, history):
         """Main chat function for Gradio."""
