@@ -18,6 +18,8 @@ from config import DefaultConfig
 try:
     from local_llm import LocalLLM
     from web_scraper import ReviewSiteScraper
+    from article_scraper import ArticleScraper
+    from conversation_manager import ConversationManager
     LOCAL_MODULES_AVAILABLE = True
 except ImportError:
     LOCAL_MODULES_AVAILABLE = False
@@ -49,30 +51,71 @@ class ProductRecommendationChatbot:
             print("🏠 Using LOCAL mode (Ollama + Web Scraping)")
             self.llm = LocalLLM(model=self.config.LOCAL_LLM_MODEL)
             self.scraper = ReviewSiteScraper()
+            self.article_scraper = ArticleScraper(llm_provider=self.llm)
+            self.conversation_manager = ConversationManager(llm_provider=self.llm)
+            
             # Test Ollama connection
             if not self.llm.test_connection():
                 print("⚠️  Ollama not running. Start it and restart the app.")
         else:
             print("☁️  Using CLOUD mode (Gemini + Google Custom Search)")
+            self.article_scraper = ArticleScraper(llm_provider=self._call_gemini_api)
+            self.conversation_manager = ConversationManager(llm_provider=self._call_gemini_api)
     
     def chat(self, message, history):
         """Main chat function for Gradio."""
         # Add user message to history
-        self.conversation_history.append({'role': 'user', 'text': message})
+        self.conversation_manager.add_message('user', message)
         
-        # Search for products
-        products = self._web_search_products(message)
+        # Check if it's a follow-up question
+        is_follow_up = self.conversation_manager.is_follow_up(message)
         
-        if not products:
-            response = "I couldn't find any expert recommendations for that. Could you try rephrasing or being more specific?"
+        if is_follow_up:
+            print(f"Detected follow-up question: {message}")
+            response = self._handle_follow_up(message)
         else:
-            response = self._generate_response(message, products)
+            # New search
+            products = self._web_search_products(message)
+            
+            if not products:
+                response = "I couldn't find any expert recommendations for that. Could you try rephrasing or being more specific?"
+            else:
+                response = self._generate_response(message, products)
         
         # Update state
         self.user_state['last_query'] = message
-        self.conversation_history.append({'role': 'assistant', 'text': response})
+        self.conversation_manager.add_message('assistant', response)
         
         return response
+        
+    def _handle_follow_up(self, message):
+        """Handle follow-up questions using conversation context."""
+        # Resolve references (e.g., "the first one")
+        resolved_message = self.conversation_manager.resolve_reference(message)
+        
+        # Get context
+        context = self.conversation_manager.get_context_for_prompt()
+        
+        prompt = f"""
+        You are a helpful product recommendation assistant.
+        
+        {context}
+        
+        User's Follow-up Question: "{resolved_message}"
+        
+        Answer the question based on the conversation history and products discussed.
+        If the user is asking for a comparison, compare the products mentioned.
+        If the user asks for a different price/feature, suggest how they might search for that (or if you know, answer it).
+        
+        Keep it concise and helpful.
+        """
+        
+        if self.use_local:
+            response = self.llm.generate(prompt)
+        else:
+            response = self._call_gemini_api(prompt)
+            
+        return response if response else "I'm having trouble understanding the follow-up. Could you rephrase?"
     
     def _web_search_products(self, query):
         """Search for products using Google Custom Search API."""
@@ -203,21 +246,51 @@ class ProductRecommendationChatbot:
             print(f"Google Search Error: {e}")
             return []
     
+        return products[:5]
+    
     def _extract_products_from_results(self, search_results, original_query):
-        """Extract product recommendations from search results."""
+        """Extract product recommendations from search results, prioritizing full article scraping."""
         products = []
         
-        for result in search_results[:3]:
-            title = result.get('title', '')
-            snippet = result.get('snippet', '')
+        # Try to scrape the top 2 results fully
+        for result in search_results[:2]:
             link = result.get('link', '')
-            
-            product_info = self._extract_product_info_with_gemini(title, snippet, link, original_query)
-            
-            if product_info:
-                products.extend(product_info)
+            if link:
+                print(f"Scraping full article: {link}")
+                scraped_products = self.article_scraper.scrape_and_extract(link, original_query)
+                if scraped_products:
+                    products.extend(scraped_products)
         
-        return products[:5]
+        # If scraping failed or returned few results, fall back to snippet extraction
+        if len(products) < 3:
+            print("Falling back to snippet extraction for more results...")
+            for result in search_results[:3]:
+                # Skip if we already scraped this link successfully
+                if any(p.get('source_url') == result.get('link') for p in products):
+                    continue
+                    
+                title = result.get('title', '')
+                snippet = result.get('snippet', '')
+                link = result.get('link', '')
+                
+                product_info = self._extract_product_info_with_gemini(title, snippet, link, original_query)
+                if product_info:
+                    products.extend(product_info)
+        
+        # Deduplicate by name (simple fuzzy match or exact match)
+        unique_products = []
+        seen_names = set()
+        for p in products:
+            name = p.get('name', '').lower()
+            # Simple check to avoid exact duplicates
+            if name not in seen_names:
+                seen_names.add(name)
+                unique_products.append(p)
+        
+        # Update conversation manager with found products
+        self.conversation_manager.current_context["last_products"] = unique_products[:5]
+        
+        return unique_products[:5]
     
     def _extract_product_info_with_gemini(self, title, snippet, link, query):
         """Use Gemini to extract structured product information."""
@@ -241,7 +314,12 @@ Extract up to 3 product recommendations in this exact JSON format:
 If no clear products are mentioned, return an empty array [].
 Return ONLY valid JSON, no other text."""
 
-        result = self._call_gemini_api(prompt)
+        if self.use_local:
+            # Use local LLM
+            result = self.llm.generate(prompt)
+        else:
+            # Use Gemini API
+            result = self._call_gemini_api(prompt)
         
         if result:
             try:
@@ -319,27 +397,67 @@ Return ONLY valid JSON, no other text."""
             product_list_str += f"   Source: {source}\n\n"
         
         context = ""
-        if self.user_state.get('last_brand'):
-            context += f"User prefers {self.user_state['last_brand']} brand. "
-        if self.user_state.get('last_price_limit'):
-            context += f"Budget: under ${self.user_state['last_price_limit']}. "
-        
         prompt = f"""You are a helpful product recommendation assistant. 
         
 User asked: "{user_query}"
 {context}
 
-Here are expert-recommended products:
+Here are expert-recommended products found:
 {product_list_str}
 
-Provide a helpful, concise recommendation (2-3 sentences). Highlight the best option and why. Be conversational and friendly."""
+Create a natural, conversational response recommending these products. 
+- Do NOT just list them 1-5. Group them logically if possible (e.g., "Best Overall", "Best Budget", "Premium Choice").
+- Use bolding for product names.
+- Include the price in parentheses.
+- Mention key pros naturally in the sentence.
+- Keep it under 200 words.
+- Be friendly and helpful, like the winter boots example: "For stylish winter boots, I'd recommend considering..."
+"""
 
-        result = self._call_gemini_api(prompt)
+        if self.use_local:
+            result = self.llm.generate(prompt)
+        else:
+            result = self._call_gemini_api(prompt)
         
         if result:
-            return result + "\n\n" + product_list_str
+            return result
         return f"Here are the top expert recommendations:\n\n{product_list_str}"
-
+        
+    def _handle_follow_up(self, message):
+        """Handle follow-up questions using conversation context."""
+        # Resolve references (e.g., "the first one")
+        resolved_message = self.conversation_manager.resolve_reference(message)
+        
+        # Get context
+        context = self.conversation_manager.get_context_for_prompt()
+        
+        prompt = f"""
+        You are a helpful product recommendation assistant.
+        
+        {context}
+        
+        User's Follow-up Question: "{resolved_message}"
+        
+        Answer the question based on the conversation history and products discussed.
+        If the user is asking for a comparison, compare the products mentioned.
+        If the user asks for a different price/feature, suggest how they might search for that (or if you know, answer it).
+        
+        Keep it concise and helpful.
+        """
+        
+        try:
+            if self.use_local:
+                response = self.llm.generate(prompt)
+            else:
+                response = self._call_gemini_api(prompt)
+                
+            if not response:
+                return "I'm having trouble generating a response. Could you try asking in a different way?"
+                
+            return response
+        except Exception as e:
+            print(f"Error generating follow-up response: {e}")
+            return "I encountered an error while processing your follow-up. Please try again."
 
 # Create Gradio interface
 def create_ui():
@@ -465,7 +583,7 @@ def create_ui():
             height=500,
             label="Chat History",
             show_label=True,
-            avatar_images=(None, "🤖"),
+            avatar_images=(None, None),
             elem_classes="light-chatbot"
         )
         
