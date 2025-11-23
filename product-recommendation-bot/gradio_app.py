@@ -451,13 +451,13 @@ def create_ui():
             """
             # 🛍️ Product Recommendation Assistant
             
-            I search expert reviews from **Wirecutter**, **RTINGS**, **Consumer Reports**, and **TechRadar** 
-            to find the best products for you. Ask me about any product!
+            I search expert reviews from trusted sources to find the best products for you:
             
-            **Examples:**
-            - "Best wireless headphones under $200"
-            - "Affordable laptop for students"
-            - "Top gaming mouse"
+            - **Electronics**: Wirecutter, RTINGS
+            - **Home Goods**: Consumer Reports, Good Housekeeping
+            - **Fashion**: Who What Wear, Vogue
+            
+            Ask me about any product!
             """
         )
         
@@ -479,10 +479,9 @@ def create_ui():
         
         gr.Examples(
             examples=[
-                "Best wireless headphones under $200",
-                "Affordable laptop for students under $500",
-                "Top gaming mouse",
-                "Best noise cancelling headphones"
+                "Stylish winter boots",
+                "Best wireless headphones",
+                "Best vacuum cleaner"
             ],
             inputs=msg
         )
