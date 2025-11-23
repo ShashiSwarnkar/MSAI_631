@@ -64,17 +64,18 @@ class ProductRecommendationChatbot:
     
     def chat(self, message, history):
         """Main chat function for Gradio."""
+        # Check if it's a follow-up question (BEFORE adding to history)
+        is_follow_up = self.conversation_manager.is_follow_up(message)
+        
         # Add user message to history
         self.conversation_manager.add_message('user', message)
-        
-        # Check if it's a follow-up question
-        is_follow_up = self.conversation_manager.is_follow_up(message)
         
         if is_follow_up:
             print(f"Detected follow-up question: {message}")
             response = self._handle_follow_up(message)
         else:
             # New search
+            print(f"Starting new search for: {message}")
             products = self._web_search_products(message)
             
             if not products:
@@ -118,9 +119,26 @@ class ProductRecommendationChatbot:
         return response if response else "I'm having trouble understanding the follow-up. Could you rephrase?"
     
     def _web_search_products(self, query):
-        """Search for products using Google Custom Search API."""
+        """Search for products using Google Custom Search API or Local Scraper."""
         search_query = self._build_search_query(query)
-        search_results = self._google_custom_search(search_query)
+        
+        if self.use_local:
+            # Use local DuckDuckGo scraper
+            # Extract sites from query if possible, or use default list
+            # The scraper expects a list of sites
+            category = self._detect_category(query)
+            sites_str = self._get_sites_for_category(category)
+            # sites_str is like "site:wirecutter.com OR site:rtings.com"
+            # We need to extract domains
+            sites = [s.replace('site:', '').strip() for s in sites_str.split(' OR ')]
+            
+            print(f"Searching locally on: {sites}")
+            # Use search_query (e.g. "best vacuum cleaner 2024") instead of raw query
+            search_results = self.scraper.search(search_query, sites)
+            print(f"Local search found {len(search_results)} results")
+        else:
+            # Use Google API
+            search_results = self._google_custom_search(search_query)
         
         if not search_results:
             return []

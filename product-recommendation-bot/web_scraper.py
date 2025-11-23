@@ -38,6 +38,7 @@ class ReviewSiteScraper:
         url = f"https://html.duckduckgo.com/html/?q={quote_plus(search_query)}"
         
         try:
+            print(f"  Scraping: {url}")
             response = requests.get(url, headers=self.headers, timeout=10)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'html.parser')
